@@ -7,7 +7,7 @@ log() {
 	logger -t "$0[$$]" "$*"
 }
 
-# check if recoord is already latest in asuscomm server, 0 for latest, 1 for need update
+# Check if recoord is already latest in asuscomm server, 0 for latest, 1 for need update
 check_record() {
 	#curl -X POST -d "hostname=shirlin" "https://iplookup.asus.com/nslookup.php"
 	RECORD_CMD='curl -s -X POST -d "hostname=shirlin" "https://iplookup.asus.com/nslookup.php"'
@@ -31,10 +31,17 @@ PRODUCTID="$(nvram get productid)"
 INNERVER="$(nvram get innerver)"
 
 # The IP address to use
-#IP="$1"
-#IPV6="$(nvram get ipv6_wan_addr | cut -d'/' -f1)"
-IP="$(curl -s https://api-ipv4.ip.sb/ip -A Mozilla)"
-IPV6="$(curl -s https://api-ipv6.ip.sb/ip -A Mozilla)"
+if [ "$(nvram get ddns_realip_x)" == "0" ]; then
+	if ip -4 route get $1/32 >/dev/null 2>&1; then
+		IP="$1"
+	else
+		IP="$(nvram get wan_ipaddr | cut -d'/' -f1)"
+	fi
+	IPV6="$(nvram get ipv6_wan_addr | cut -d'/' -f1)"
+else
+	IP="$(curl -s https://api-ipv4.ip.sb/ip -A Mozilla)"
+	IPV6="$(curl -s https://api-ipv6.ip.sb/ip -A Mozilla)"
+fi
 
 # Asus DDNS server
 ASUS_SERVER='ns1.asuscomm.com'
@@ -69,7 +76,7 @@ else
 fi
 
 if [ "$(nvram get ddns_ipv6_update)" == "1" ]; then
-	if ip -6 route get $IPV6/32 >/dev/null 2>&1; then
+	if ip -6 route get $IPV6/128 >/dev/null 2>&1; then
 		IPV6_TXT="&myipv6=$IPV6"
 	else
 		log "no ipv6 or get wrong ipv6 addr."
@@ -94,3 +101,10 @@ case "$HTTP_CODE" in
 		/sbin/ddns_custom_updated 0
 	;;
 esac
+
+# Force update
+if [ "$(nvram get ddns_refresh_x)" != "0" ] && !(cru l | grep -q '#DDNSForceUpdate#'); then
+	cru a "DDNSForceUpdate" "29 6 */$(nvram get ddns_refresh_x) * * $0 --force"
+	log "creat force update cron job."
+fi
+
