@@ -68,8 +68,16 @@ else
 	check_record && log "already latest." && /sbin/ddns_custom_updated 1 && exit 0
 fi
 
+if [ "$(nvram get ddns_ipv6_update)" == "1" ]; then
+	if ip -6 route get $IPV6/32 >/dev/null 2>&1; then
+		IPV6_TXT="&myipv6=$IPV6"
+	else
+		log "no ipv6 or get wrong ipv6 addr."
+	fi
+fi
+
 # Try to update
-UPDATE_CMD="curl -fs -w 'http_code:%{http_code}' -u \"${MAC_ADDR//:/}:$PASSWORD\" \"https://$ASUS_SERVER/ddns/update.jsp?hostname=${HOSTNAME%.asuscomm.com}.asuscomm.com&oldmac=${MAC_ADDR//:/}$ACME_TXT&myip=$IP&myipv6=$IPV6&model=$PRODUCTID&fw_ver=$INNERVER\""
+UPDATE_CMD="curl -fs -w 'http_code:%{http_code}' -u \"${MAC_ADDR//:/}:$PASSWORD\" \"https://$ASUS_SERVER/ddns/update.jsp?hostname=${HOSTNAME%.asuscomm.com}.asuscomm.com&oldmac=${MAC_ADDR//:/}$ACME_TXT&myip=$IP$IPV6_TXT&model=$PRODUCTID&fw_ver=$INNERVER\""
 log "$UPDATE_CMD"
 HTTP_RESULT=$(eval "$UPDATE_CMD")
 HTTP_CODE="${HTTP_RESULT#*http_code:}"
