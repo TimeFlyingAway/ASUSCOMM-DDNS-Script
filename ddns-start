@@ -57,6 +57,12 @@ done
 # Use openssl to generate the password
 PASSWORD="$(printf '%s' "${MAC_ADDR//:/}${IP//./}" | openssl md5 -hmac "$(nvram get secret_code)" 2>/dev/null | awk '{print toupper($2)}')"
 
+# Creat force update
+if [ "$(nvram get ddns_refresh_x)" != "0" ] && !(cru l | grep -q '#DDNSForceUpdate#'); then
+	cru a "DDNSForceUpdate" "29 6 */$(nvram get ddns_refresh_x) * * $0 --force"
+	log "creat force update cron job."
+fi
+
 # default nvram set le_acme_debug=0
 if [ "$(nvram get le_re_ddns)" == "1" ] || [ -f /tmp/acme.txt ]; then
 	log "ddns with acme challenge."
@@ -101,10 +107,3 @@ case "$HTTP_CODE" in
 		/sbin/ddns_custom_updated 0
 	;;
 esac
-
-# Force update
-if [ "$(nvram get ddns_refresh_x)" != "0" ] && !(cru l | grep -q '#DDNSForceUpdate#'); then
-	cru a "DDNSForceUpdate" "29 6 */$(nvram get ddns_refresh_x) * * $0 --force"
-	log "creat force update cron job."
-fi
-
